@@ -66,7 +66,13 @@ namespace Sick {
 		
 		public bool ScanContinuous {
 			set {
-				Packet.StartContinuousOutput.CopyTo(Transmit);
+				if (value) {
+					Packet.StartContinuousOutput.Seek(0,SeekOrigin.Begin);
+					Packet.StartContinuousOutput.CopyTo(Transmit);
+				} else {
+					Packet.StopContinuousOutput.Seek(0,SeekOrigin.Begin);
+					Packet.StopContinuousOutput.CopyTo(Transmit);
+				}
 			}
 		}
 		
