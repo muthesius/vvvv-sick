@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 namespace Sick {
 	
 	public class SickDevice: IDisposable {
-		public Stream Transmit, Receive;
+		public MemoryStream Transmit, Receive;
 		public SickDevice() {
 			Transmit = new MemoryStream();
 			Receive = new MemoryStream();
@@ -60,23 +60,25 @@ namespace Sick {
 			
 		}
 		
-		void Send(Command cmd, byte[] data) {
+		void Send(Packet p) {
 			// Build the packet
+			Transmit.Seek(0,SeekOrigin.Begin);
+			p.WriteTo(Transmit);
+			Transmit.Flush();
+		}
+		
+		public void GetStatus() {
+			Send(Packet.GetStatus);
 		}
 		
 		public bool ScanContinuous {
 			set {
-				if (value) {
-					Packet.StartContinuousOutput.Seek(0,SeekOrigin.Begin);
-					Packet.StartContinuousOutput.CopyTo(Transmit);
-				} else {
-					Packet.StopContinuousOutput.Seek(0,SeekOrigin.Begin);
-					Packet.StopContinuousOutput.CopyTo(Transmit);
-				}
+				var p = value ?	Packet.StartContinuousOutput : Packet.StopContinuousOutput;
+				Send(p);
 			}
 		}
 		
-		public void CheckPacket(Stream data) {
+		public void CheckPacket(Stream input) {
 			
 		}
 		
@@ -87,6 +89,23 @@ namespace Sick {
 			return s;
 		}
 		
+		public void WriteTo(ref Stream s) {
+			//			Transmit.WriteTo(s);
+			//			Transmit.Flush();
+			s = Transmit;
+		}
+		
+		public void ReadFrom(Stream s) {
+			Receive.Flush();
+			Receive.Seek(0,SeekOrigin.Begin);
+			var t = s.CopyToAsync(Receive);
+			t.Wait();
+		}
+		
+		public void Flush() {
+			Transmit.Flush();
+			Receive.Flush();
+		}
 	}
 	
 	
@@ -140,6 +159,15 @@ namespace Sick {
 				var p = new Packet();
 				byte[] buff = { 0x02, 0x00, 0x02, 0x00, 0x20, 0x25, 0x35, 0x08 };
 				p.Write(buff, 0, buff.Length);
+				return p;
+			}
+		}
+		
+		public static Packet GetStatus {
+			get {
+				var p = new Packet();
+				byte[] buff = {0x02, 0x00, 0x01, 0x00, 0x31, 0x15, 0x12};
+				p.Write(buff,0,buff.Length);
 				return p;
 			}
 		}
