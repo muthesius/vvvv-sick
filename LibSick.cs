@@ -231,13 +231,14 @@ namespace Sick {
 	
 	public class RingStream : Stream {
 		int Size;
-		public int pos;
-		int length;
+		public int head, length, tail;
 		public byte[] buffer;
+		
 		public RingStream(int capacity) {
 			Size = capacity;
 			buffer = new byte[Size];
-			pos = 0;
+			tail = 0;
+			head = 0;
 			length = 0;
 		}
 		
@@ -245,6 +246,7 @@ namespace Sick {
 		public override bool CanSeek { get { return true; } }
 		public override bool CanWrite { get { return true; } }
 		public override long Length { get { return length; } }
+		
 		long position = 0;
 		public override long Position {
 			get { return position; }
@@ -278,42 +280,40 @@ namespace Sick {
 		}
 		
 		public override int Read(byte[] data, int offset, int l) {
-//			l = Math.Min((int)Length, l);
-			int start = (int) position;
-			int count = start + l;
-			if ( count >= pos ) {
-				Buffer.BlockCopy(buffer, start, data, offset, l - count);
-				Buffer.BlockCopy(buffer, 0, data, offset + pos - count, l - pos - count);
+			if ( head <= tail ) {
+				l = Math.Min(length, l);
+				Buffer.BlockCopy(buffer,head,data, offset, l);
 			} else {
-				Buffer.BlockCopy(buffer, start, data, offset, count);
+				l = Math.Min(length, l);
+				Buffer.BlockCopy(buffer,head, data, offset, head - Size);
+				//				Buffer.BlockCopy(buffer,tail,data, offset, l - Size - 1);
 			}
-			Position += l;
 			return l;
 		}
 		
 		public override void WriteByte(byte data) {
-			buffer[pos] = data;
-			SetLength(Length+1);
-			pos = pos + 1 == Size ? 0 : pos+1;
+			// update the length
+			length = length == Size ? length : length + 1;
+			// advance the tail
+			if (length > 1) {
+				tail = (tail+1) % Size;
+				if (length < Size) {
+					head = 0;
+				}
+				else if (tail == head) {
+					head = (tail+1) % Size;
+				}
+				
+			}
+			buffer[tail] = data;
 		}
 		
 		public override void Write(byte[] data, int offset, int l) {
 			if (l <= 0 || data.Length <= 0) return;
-			if (data.Length >= Size) {
-				Buffer.BlockCopy(data, offset, buffer, 0, Size);
-				SetLength(Size);
-				pos = 0;
-			} else {
-				int head = Size - pos;
-				Buffer.BlockCopy(data, offset, buffer, pos, Math.Min(l,head));
-				pos += Math.Min(l,head);
-				if (l > head) {
-					int tail = l - head;
-					Buffer.BlockCopy(data, offset+head, buffer, 0, tail);
-					pos = tail;
-				}
-				pos = pos % Size;
-				SetLength(Length + l);
+			byte[] tmp = new byte[l];
+			Buffer.BlockCopy(data, offset, tmp, 0, l);
+			foreach (byte b in tmp) {
+				WriteByte(b);
 			}
 		}
 		
@@ -325,7 +325,8 @@ namespace Sick {
 				s.Read(buffer,0,Size);
 				SetLength(Size);
 				Position = Size;
-				pos = 0;
+				head = 0;
+				tail = Size-1;
 			}
 			else {
 				if (s.Length == 1) {

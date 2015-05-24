@@ -122,7 +122,8 @@ namespace VVVV.Nodes.Devices
 				Input[0].CopyTo(Scanner.Receive);
 				Debug.Add((int)Scanner.Receive.Position);
 				Debug.Add((int)Scanner.Receive.Length);
-				Debug.Add((int)Scanner.Receive.pos);
+				Debug.Add((int)Scanner.Receive.head);
+				Debug.Add((int)Scanner.Receive.tail);
 				Raw[0] = Scanner.Receive;
 
 			}
