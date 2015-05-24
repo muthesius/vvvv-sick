@@ -68,6 +68,8 @@ namespace VVVV.Nodes.Devices
 		
 		public void Evaluate(int SpreadMax)
 		{
+			Scanners.SliceCount = 1;
+			Scanners[0] = Scanner;
 			FOutput.SliceCount = 4;
 			Valid.SliceCount = 1;
 			Checksums.SliceCount = 3;
@@ -79,11 +81,7 @@ namespace VVVV.Nodes.Devices
 			Checksums[0] = p.Checksums[0];
 			Checksums[1] = Input.SliceCount;
 			
-			if (Input.SliceCount> 0){
-				Checksums[2] = (int) Input[0].Length;
-				Scanner.ReadFrom(Input[0]);
-			}
-			Scanner.Flush();
+			//Scanner.Flush();
 		}
 	}
 	
@@ -95,21 +93,38 @@ namespace VVVV.Nodes.Devices
 		[Input("Device Handle")]
 		public ISpread<SickDevice> Scanners;
 		
-		[Input("Data In", IsSingle = true, AutoValidate = false)]
-		public IDiffSpread<Stream> Input;
-
+		[Input("Data In", IsSingle = true)]
+		public ISpread<Stream> Input;
+		
+		[Input("Reset", IsSingle = true, IsBang = true)]
+		public IDiffSpread<bool> Reset;
+		
 		[Output("Raw Out")]
 		public ISpread<Stream> Raw;
 		
-		public void Dispose() {}
+		[Output("Debug")]
+		public ISpread<int> Debug;
+		
+		public void Dispose() {
+		}
 		
 		public void Evaluate(int SpreadMax)
 		{
+			Debug.SliceCount = 0;
 			SickDevice Scanner = Scanners[0];
-			Raw.SliceCount = 1;
+			if (Reset.IsChanged && Reset[0]) Scanner.Reset();
+			
+			Raw.SliceCount = Input.SliceCount > 0 ? 1 : 0;
 			if (Input.SliceCount> 0){
-				Scanner.ReadFrom(Input[0]);
+//				Scanner.ReadFrom(Input[0]);
+				var s = Input[0];
+				Scanner.Receive.ReadFrom(s);
+				Input[0].CopyTo(Scanner.Receive);
+				Debug.Add((int)Scanner.Receive.Position);
+				Debug.Add((int)Scanner.Receive.Length);
+				Debug.Add((int)Scanner.Receive.pos);
 				Raw[0] = Scanner.Receive;
+
 			}
 			
 		}

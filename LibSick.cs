@@ -2,14 +2,21 @@ using System;
 using System.IO;
 using System.IO.Ports;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using VVVV.Utils.Streams;
 
 namespace Sick {
 	
 	public class SickDevice: IDisposable {
-		public MemoryStream Transmit, Receive;
+		public MemoryStream Transmit;
+		public RingStream Receive;
 		public SickDevice() {
 			Transmit = new MemoryStream();
-			Receive = new MemoryStream();
+			Receive = new RingStream(10);
+		}
+		
+		public void Reset() {
+			Receive.SetLength(0);
 		}
 		
 		public void Dispose() {
@@ -90,22 +97,37 @@ namespace Sick {
 		}
 		
 		public void WriteTo(ref Stream s) {
-			//			Transmit.WriteTo(s);
-			//			Transmit.Flush();
-			s = Transmit;
+			Transmit.WriteTo(s);
+			Transmit.Flush();
 		}
 		
 		public void ReadFrom(Stream s) {
-			Receive.Flush();
-			Receive.Seek(0,SeekOrigin.Begin);
-			var t = s.CopyToAsync(Receive);
-			t.Wait();
+			for (Int32 data = s.ReadByte(); data != -1; data=s.ReadByte()) {
+				Receive.WriteByte((byte)data);
+			}
 		}
+		
 		
 		public void Flush() {
 			Transmit.Flush();
 			Receive.Flush();
 		}
+		
+		void FindPaket() {
+			//			if ( Receive.Length < 3) return;
+			
+			// get a hypothetical checksum
+			//			var reader = new BinaryReader(Receive);
+			//			Receive.Seek(-2,SeekOrigin.End);
+			//			ushort crc = reader.ReadUInt16();
+			//			var length = Receive.Length;
+			//			var payloadLength = length - 2;
+			// find up to payloadLength crcs
+			
+			// match up the current buffer from the reverse
+			
+		}
+		
 	}
 	
 	
@@ -131,17 +153,17 @@ namespace Sick {
 		public bool IsValid = false;
 		public ushort[] Checksums = new ushort[2];
 		public override void Write(byte[] data, int offset, int length) {
-			base.Write(data,offset,length-2);
-			ushort given_crc = (ushort)(((ushort)data[data.Length-1])<<8 | (ushort)data[data.Length-2]);
-			byte[] buffer = new byte[data.Length-2];
-			Buffer.BlockCopy(data,0,buffer,0,buffer.Length);
-			ushort current_crc = Crc16.Sum(buffer);
-			chksm.Seek(0,SeekOrigin.Begin);
-			chksm.Write(data,data.Length-2,2);
-			Checksums[0] = given_crc;
-			Checksums[1] = current_crc;
-			IsValid = current_crc == given_crc;
-			base.Write(data,data.Length-2,2);
+			//			base.Write(data,offset,length-2);
+			//			ushort given_crc = (ushort)(((ushort)data[data.Length-1])<<8 | (ushort)data[data.Length-2]);
+			//			byte[] buffer = new byte[data.Length-2];
+			//			Buffer.BlockCopy(data,0,buffer,0,buffer.Length);
+			//			ushort current_crc = Crc16.Sum(buffer);
+			//			chksm.Seek(0,SeekOrigin.Begin);
+			//			chksm.Write(data,data.Length-2,2);
+			//			Checksums[0] = given_crc;
+			//			Checksums[1] = current_crc;
+			//			IsValid = current_crc == given_crc;
+			//			base.Write(data,data.Length-2,2);
 		}
 		
 		
@@ -182,14 +204,15 @@ namespace Sick {
 	{
 		const ushort polynomial = 0x8005;
 		
-		public static ushort Sum(byte[] CommData) {
+		public static ushort Sum(Stream s, int offset) {
+			long currentPosition = s.Position;
+			s.Seek(offset, SeekOrigin.Begin);
 			ushort uCrc16 = 0;
 			byte[] abData = new byte[2];
-			long uLen = CommData.Length-0;
-			//uCrc16 = 0; abData[0] = 0x00;
-			for (int i=0; i<CommData.Length; i++) {
+			long uLen = s.Length - 2;
+			for (int i=offset; i<uLen; i++) {
 				abData[1] = abData[0];
-				abData[0] = CommData[i];
+				s.Read(abData,i,1);
 				if((uCrc16 & 0x8000) > 0)
 				{
 					uCrc16 = (ushort) ((uCrc16 & 0x7fff) << 1);
@@ -200,7 +223,119 @@ namespace Sick {
 				}
 				uCrc16 ^= (ushort) ((ushort) (abData[0]) | ((ushort)(abData[1]) << 8));
 			}
+			s.Seek(currentPosition, SeekOrigin.Begin);
 			return(uCrc16);
+		}
+	}
+	
+	
+	public class RingStream : Stream {
+		int Size;
+		public int pos;
+		int length;
+		public byte[] buffer;
+		public RingStream(int capacity) {
+			Size = capacity;
+			buffer = new byte[Size];
+			pos = 0;
+			length = 0;
+		}
+		
+		public override bool CanRead { get { return true; } }
+		public override bool CanSeek { get { return true; } }
+		public override bool CanWrite { get { return true; } }
+		public override long Length { get { return length; } }
+		long position = 0;
+		public override long Position {
+			get { return position; }
+			set { position = value; }
+		}
+		
+		public override void Flush() {
+			//
+		}
+		public override long Seek(long p, SeekOrigin origin) {
+			switch(origin) {
+				default:
+				case SeekOrigin.Begin:
+				position = p;
+				break;
+				case SeekOrigin.Current:
+				position += p;
+				break;
+				case SeekOrigin.End:
+				position = Length - p;
+				break;
+			}
+			return Position;
+		}
+		
+		public override void SetLength(long l) {
+			length = Math.Max(0, Math.Min(Size, (int) l));
+			if ( Position > l) {
+				Position = l;
+			}
+		}
+		
+		public override int Read(byte[] data, int offset, int l) {
+//			l = Math.Min((int)Length, l);
+			int start = (int) position;
+			int count = start + l;
+			if ( count >= pos ) {
+				Buffer.BlockCopy(buffer, start, data, offset, l - count);
+				Buffer.BlockCopy(buffer, 0, data, offset + pos - count, l - pos - count);
+			} else {
+				Buffer.BlockCopy(buffer, start, data, offset, count);
+			}
+			Position += l;
+			return l;
+		}
+		
+		public override void WriteByte(byte data) {
+			buffer[pos] = data;
+			SetLength(Length+1);
+			pos = pos + 1 == Size ? 0 : pos+1;
+		}
+		
+		public override void Write(byte[] data, int offset, int l) {
+			if (l <= 0 || data.Length <= 0) return;
+			if (data.Length >= Size) {
+				Buffer.BlockCopy(data, offset, buffer, 0, Size);
+				SetLength(Size);
+				pos = 0;
+			} else {
+				int head = Size - pos;
+				Buffer.BlockCopy(data, offset, buffer, pos, Math.Min(l,head));
+				pos += Math.Min(l,head);
+				if (l > head) {
+					int tail = l - head;
+					Buffer.BlockCopy(data, offset+head, buffer, 0, tail);
+					pos = tail;
+				}
+				pos = pos % Size;
+				SetLength(Length + l);
+			}
+		}
+		
+		public void ReadFrom(Stream s) {
+			if (s.Length <= 0 || !s.CanRead) return;
+			if (s.Position != 0) s.Seek(0, SeekOrigin.Begin);
+			if (s.Length >= Size) {
+				s.Seek(-Size, SeekOrigin.End);
+				s.Read(buffer,0,Size);
+				SetLength(Size);
+				Position = Size;
+				pos = 0;
+			}
+			else {
+				if (s.Length == 1) {
+					WriteByte((byte)s.ReadByte());
+				} else {
+					byte[] tmp = new byte[s.Length];
+					s.Read(tmp,0,tmp.Length);
+					Write(tmp,0,tmp.Length);
+				}
+			}
 		}
 	}
 }
