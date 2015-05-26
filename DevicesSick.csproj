@@ -50,6 +50,8 @@
     <Compile Include="DevicesSickNode.cs" />
     <Compile Include="LibSick.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Ringbuffer.cs" />
+    <Compile Include="RingBufferNode.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.Targets" />
 </Project>

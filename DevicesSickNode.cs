@@ -114,20 +114,21 @@ namespace VVVV.Nodes.Devices
 			SickDevice Scanner = Scanners[0];
 			if (Reset.IsChanged && Reset[0]) Scanner.Reset();
 			
-			Raw.SliceCount = Input.SliceCount > 0 ? 1 : 0;
-			if (Input.SliceCount> 0){
-//				Scanner.ReadFrom(Input[0]);
-				var s = Input[0];
-				Scanner.Receive.ReadFrom(s);
-				Input[0].CopyTo(Scanner.Receive);
-				Debug.Add((int)Scanner.Receive.Position);
-				Debug.Add((int)Scanner.Receive.Length);
-				Debug.Add((int)Scanner.Receive.head);
-				Debug.Add((int)Scanner.Receive.tail);
-				Raw[0] = Scanner.Receive;
-
-			}
+			Raw.SliceCount = 2;
 			
+			if (Input.SliceCount> 0){
+				Scanner.ReadFrom(Input[0]);
+			}
+			Debug.Add((int)Scanner.RxBuffer.Count);
+			if (Raw[0] == null) Raw[0] = new MemoryStream(Scanner.RxBuffer.Count);
+			Raw[0].SetLength(Scanner.RxBuffer.Count);
+			Raw[0].Position = 0;
+			Raw[0].Write(Scanner.RxBuffer.ToArray(),0, Scanner.RxBuffer.Count);
+			
+			if (Scanner.currentPacket != null) {
+				Debug.Add((int)Scanner.currentPacket.Length);
+			}
+			Raw[1] = Scanner.currentPacket;			
 		}
 		
 	}
