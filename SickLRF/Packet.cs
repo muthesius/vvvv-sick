@@ -11,16 +11,13 @@ using System.Collections.Generic;
 using System.Text;
 using System.IO.Ports;
 using System.Diagnostics;
-using Microsoft.Dss.ServiceModel.Dssp;
-using System.Xml;
-using Microsoft.Dss.Services.ConsoleOutput;
-using Microsoft.Dss.ServiceModel.DsspServiceBase;
+using VVVV.Core.Logging;
 
-namespace Microsoft.Robotics.Services.Sensors.SickLRF
+namespace Muthesius.SickLRF
 {
     internal class Packet
     {
-        byte[] _data;
+        public byte[] _data;
 
         #region Constructors
 
@@ -259,10 +256,11 @@ namespace Microsoft.Robotics.Services.Sensors.SickLRF
         bool _missedFirst;
         int _badCount;
         string _parent;
-        ConsoleOutputPort _console;
+        ILogger Logger;
 
-        public PacketBuilder()
+        public PacketBuilder(ILogger logger)
         {
+        	Logger = logger;
             _dropped = 0;
             _total = 0;
             _state = State.STX;
@@ -421,24 +419,11 @@ namespace Microsoft.Robotics.Services.Sensors.SickLRF
             set { _parent = value; }
         }
 
-        public ConsoleOutputPort Console
-        {
-            get { return _console; }
-            set { _console = value; }
-        }
-
         void LogInfo(string format, params object[] args)
         {
             string msg = string.Format(format, args);
 
-            DsspServiceBase.Log(
-                TraceLevel.Info,
-                TraceLevel.Info,
-                new XmlQualifiedName("PacketBuilder", Contract.Identifier),
-                _parent,
-                msg,
-                null,
-                _console);
+            Logger.Log(LogType.Debug,msg);
         }
     }
 }
