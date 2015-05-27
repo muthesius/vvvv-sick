@@ -81,6 +81,16 @@ namespace Muthesius.SickLRF
                 return data;
             }
         }
+    	public byte PacketStatus
+    	{
+    		get { return GoodChecksum ? _data[Length+1] : (byte)0x00; }
+    	}
+    	public bool IsDirty {
+    		get { return ((PacketStatus>>8) & 0x01) > 0; }
+    	}
+    	public bool FaultyMeasurement {
+    		get { return ((PacketStatus>>7) & 0x01) > 0; }
+    	}
         public ushort Checksum
         {
             get { return ReadUshort(4 + Length); }
@@ -419,7 +429,7 @@ namespace Muthesius.SickLRF
             set { _parent = value; }
         }
 
-        void LogInfo(string format, params object[] args)
+        public void LogInfo(string format, params object[] args)
         {
             string msg = string.Format(format, args);
 

@@ -48,10 +48,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DevicesSickNode.cs" />
-    <Compile Include="LibSick.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Ringbuffer.cs" />
-    <Compile Include="RingBufferNode.cs" />
+    <Compile Include="SickLRF\CommLink.cs" />
     <Compile Include="SickLRF\Packet.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.Targets" />

@@ -7,11 +7,9 @@
 //-----------------------------------------------------------------------
 
 using System;
-using Microsoft.Ccr.Core;
 using System.IO.Ports;
-using Microsoft.Dss.Services.ConsoleOutput;
 
-namespace Microsoft.Robotics.Services.Sensors.SickLRF
+namespace Muthesius.SickLRF
 {
     internal class BadPacketException : Exception
     {
@@ -30,19 +28,19 @@ namespace Microsoft.Robotics.Services.Sensors.SickLRF
         }
     }
 
-    internal class SerialIOManager : CcrServiceBase
+    internal class SerialIOManager
     {
-        public class Operations : PortSet<Open, Close, SetRate, Send>
+        public class Operations //: PortSet<Open, Close, SetRate, Send>
         {
         }
 
-        public class ResponsePort : PortSet<Packet, Exception>
+        public class ResponsePort //: PortSet<Packet, Exception>
         {
         }
 
         public class Command
         {
-            public SuccessFailurePort ResponsePort = new SuccessFailurePort();
+//            public SuccessFailurePort ResponsePort = new SuccessFailurePort();
         }
 
         public class Open : Command
@@ -99,16 +97,15 @@ namespace Microsoft.Robotics.Services.Sensors.SickLRF
         public Operations OperationsPort = new Operations();
         public ResponsePort Responses = new ResponsePort();
 
-        Port<Recv> DataPort = new Port<Recv>();
+//        Port<Recv> DataPort = new Port<Recv>();
         SerialPort _port;
         PacketBuilder _builder = new PacketBuilder();
         string _portName;
         int _badCount = 0;
         string _parent;
-        ConsoleOutputPort _console;
+//        ConsoleOutputPort _console;
 
-        public SerialIOManager(DispatcherQueue dispatcherQueue, string portName)
-            : base(dispatcherQueue)
+        public SerialIOManager(string portName)
         {
             _portName = portName;
             CreatePort(9600);
@@ -149,27 +146,27 @@ namespace Microsoft.Robotics.Services.Sensors.SickLRF
             cmd.ResponsePort.Post(new Exception("The requested command is not available in the current state"));
         }
 
-        Interleave WaitForOpen()
+        void WaitForOpen()
         {
-            return Arbiter.Interleave(
-                new TeardownReceiverGroup
-                (
-                    Arbiter.Receive<Open>(false,OperationsPort,OpenHandler)
-                ),
-                new ExclusiveReceiverGroup
-                (
-                ),
-                new ConcurrentReceiverGroup
-                (
-                    Arbiter.Receive(true, DataPort, IgnoreDataHandler),
-                    Arbiter.Receive(true, OperationsPort.P1, CommandUnavailable),
-                    Arbiter.Receive(true, OperationsPort.P2, CommandUnavailable),
-                    Arbiter.Receive(true, OperationsPort.P3, CommandUnavailable)
-                ));
+//            return Arbiter.Interleave(
+//                new TeardownReceiverGroup
+//                (
+//                    Arbiter.Receive<Open>(false,OperationsPort,OpenHandler)
+//                ),
+//                new ExclusiveReceiverGroup
+//                (
+//                ),
+//                new ConcurrentReceiverGroup
+//                (
+//                    Arbiter.Receive(true, DataPort, IgnoreDataHandler),
+//                    Arbiter.Receive(true, OperationsPort.P1, CommandUnavailable),
+//                    Arbiter.Receive(true, OperationsPort.P2, CommandUnavailable),
+//                    Arbiter.Receive(true, OperationsPort.P3, CommandUnavailable)
+//                ));
         }
 
 
-        Interleave Connected()
+        void Connected()
         {
             return Arbiter.Interleave(
                 new TeardownReceiverGroup
@@ -318,7 +315,7 @@ namespace Microsoft.Robotics.Services.Sensors.SickLRF
             }
         }
 
-        public ConsoleOutputPort Console
+        public Object Console
         {
             get { return _console; }
             set

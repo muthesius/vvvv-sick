@@ -11,18 +11,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO.Ports;
 using System.Text;
-using System.Xml;
 
-using Microsoft.Ccr.Core;
-using Microsoft.Dss.Core;
-using Microsoft.Dss.Core.Attributes;
-using Microsoft.Dss.ServiceModel.Dssp;
-using Microsoft.Dss.ServiceModel.DsspServiceBase;
-using Microsoft.Dss.Services.ConsoleOutput;
-
-namespace Microsoft.Robotics.Services.Sensors.SickLRF
+namespace Muthesius.SickLRF
 {
-    internal class LRFCommLinkPort : PortSet<LinkMeasurement, LinkPowerOn, LinkReset, LinkConfirm, LinkStatus, Exception>
+    internal class LRFCommLinkPort // : PortSet<LinkMeasurement, LinkPowerOn, LinkReset, LinkConfirm, LinkStatus, Exception>
     {
     }
 
@@ -38,7 +30,6 @@ namespace Microsoft.Robotics.Services.Sensors.SickLRF
     /// <summary>
     /// Units of measure
     /// </summary>
-    [DataContract]
     public enum Units
     {
         /// <summary>
@@ -73,327 +64,321 @@ namespace Microsoft.Robotics.Services.Sensors.SickLRF
     {
     }
 
-    internal class CommLink : CcrServiceBase, IDisposable
-    {
-        LRFCommLinkPort _internalPort;
-        SerialIOManager _serial;
-        string _parent;
-        ConsoleOutputPort _console;
-        string _description;
-        string _portName;
-        int _rate;
-
-        public new DispatcherQueue TaskQueue
-        {
-            get { return base.TaskQueue; }
-        }
-
-        public CommLink(DispatcherQueue dispatcherQueue, string port, LRFCommLinkPort internalPort)
-            : base(dispatcherQueue)
-        {
-            _internalPort = internalPort;
-            _portName = port;
-
-            _serial = new SerialIOManager(dispatcherQueue, _portName);
-            Activate<ITask>(
-                Arbiter.Receive<Packet>(true, _serial.Responses, PacketHandler),
-                Arbiter.Receive<Exception>(true, _serial.Responses, ExceptionHandler)
-            );
-        }
-
-        public string Parent
-        {
-            get { return _parent; }
-            set
-            {
-                _parent = value;
-                _serial.Parent = value;
-            }
-        }
-
-        public ConsoleOutputPort Console
-        {
-            get { return _console; }
-            set
-            {
-                _console = value;
-                _serial.Console = value;
-            }
-        }
-
-        SuccessFailurePort Send(Packet packet)
-        {
-            SerialIOManager.Send send = new SerialIOManager.Send();
-            send.Packet = packet;
-
-            _serial.OperationsPort.Post(send);
-
-            return send.ResponsePort;
-        }
-
-        public SuccessFailurePort Initialize()
-        {
-            if (_serial.BaudRate != 9600)
-            {
-                _rate = 9600;
-            }
-            return Send(Packet.InitializeAndReset);
-        }
-
-        /// <summary>
-        /// Sets the Baud rate used to communicate with the LRF.
-        /// Acceptable values are 38400, 19200 and 9600
-        /// </summary>
-        public SuccessFailurePort SetDataRate(int rate)
-        {
-            Packet packet;
-            switch (rate)
-            {
-                case 38400:
-                    packet = Packet.MonitoringMode(0x40);
-                    break;
-
-                case 19200:
-                    packet = Packet.MonitoringMode(0x41);
-                    break;
-
-                case 9600:
-                    packet = Packet.MonitoringMode(0x42);
-                    break;
-
-                default:
-                    SuccessFailurePort port = new SuccessFailurePort();
-                    port.Post(new ArgumentException("Baud Rate (only 9600, 19200 and 38400 supported)"));
-                    return port;
-            }
-            _rate = rate;
-            return Send(packet);
-        }
-
-        /// <summary>
-        /// Gets the Baud rate used to communicate with the LRF.
-        /// Acceptable values are 38400, 19200 and 9600
-        /// </summary>
-        public int BaudRate
-        {
-            get { return _serial.BaudRate; }
-        }
-
-        public string Description
-        {
-            get { return _description; }
-        }
-
-        void PacketHandler(Packet packet)
-        {
-            DateTime timeStamp = DateTime.Now;
-
-            if (packet == null || !packet.GoodChecksum)
-            {
-                return;
-            }
-            switch (packet.Response)
-            {
-                case 0x91:
-                    LogInfo("Reset");
-                    OnReset(packet);
-                    break;
-                case 0x90:
-                    LogInfo("Power On");
-                    OnPowerOn(packet);
-                    break;
-                case 0xA0:
-                    LogInfo("Confirm");
-                    OnConfirm(packet);
-                    break;
-                case 0xB0:
-                    OnMeasurement(packet, timeStamp);
-                    break;
-                case 0xB1:
-                    LogInfo("Status");
-                    OnStatus(packet);
-                    break;
-                default:
-                    LogInfo("Unknown Packet: {0}", packet.Response);
-                    break;
-            }
-        }
-
-        void LogInfo(string format, params object[] args)
-        {
-            string msg = string.Format(format, args);
-
-            DsspServiceBase.Log(TraceLevel.Info,
-                                TraceLevel.Info,
-                                new XmlQualifiedName("CommLink", Contract.Identifier),
-                                _parent,
-                                msg,
-                                null,
-                                _console);
-        }
-
-        void ExceptionHandler(Exception e)
-        {
-            _internalPort.Post(e);
-        }
-
-        private void OnStatus(Packet p)
-        {
-            _internalPort.Post(new LinkStatus(p.Data));
-        }
-
-        private void OnReset(Packet p)
-        {
-            SetRate();
-
-            _internalPort.Post(new LinkReset());
-        }
-
-        private void OnConfirm(Packet p)
-        {
-            _internalPort.Post(new LinkConfirm());
-        }
-
-        public SuccessFailurePort SetRate()
-        {
-            SuccessFailurePort port;
-
-            if (_rate != 0)
-            {
-                SerialIOManager.SetRate setRate = new SerialIOManager.SetRate(_rate);
-
-                _serial.OperationsPort.Post(setRate);
-
-                port = setRate.ResponsePort;
-            }
-            else
-            {
-                port = new SuccessFailurePort();
-                port.Post(new Exception("Rate not set"));
-            }
-
-            return port;
-        }
-
-
-        private void OnMeasurement(Packet p, DateTime TimeStamp)
-        {
-            byte[] data = p.Data;
-            LinkMeasurement lsd = new LinkMeasurement();
-            lsd.TimeStamp = TimeStamp;
-
-            ushort lengthAndFlags = Packet.MakeUshort(data[1], data[2]);
-            int length = lengthAndFlags & 0x3FF;
-
-            switch (lengthAndFlags >> 14)
-            {
-                case 0:
-                    lsd.Units = Units.Centimeters;
-                    break;
-                case 1:
-                    lsd.Units = Units.Millimeters;
-                    break;
-                default:
-                    return;
-            }
-
-            lsd.Ranges = new int[length];
-
-            int offset = 3;
-            for (int i = 0; i < length; i++, offset += 2)
-            {
-                ushort range = Packet.MakeUshort(data[offset], data[offset + 1]);
-                if (range > 0x1FF7)
-                {
-                    range = 0x2000;
-                }
-                lsd.Ranges[i] = range;
-            }
-
-
-            if (offset < p.Length - 1)
-            {
-                lsd.ScanIndex = data[offset++];
-            }
-            else
-            {
-                lsd.ScanIndex = -1;
-            }
-            if (offset < p.Length - 1)
-            {
-                lsd.TelegramIndex = data[offset++];
-            }
-            else
-            {
-                lsd.TelegramIndex = -1;
-            }
-
-            _internalPort.Post(lsd);
-        }
-
-
-
-        private void OnPowerOn(Packet p)
-        {
-            _description = "";
-            byte[] data = p.Data;
-            int length = data.Length;
-
-            for (int i = 1; i < length - 1; i++)
-            {
-                _description = _description + ((char)data[i]);
-            }
-
-            _internalPort.Post(new LinkPowerOn(_description));
-        }
-
-        #region IDisposable Members
-
-        public void Dispose()
-        {
-            Close();
-        }
-
-        #endregion
-
-        public SuccessFailurePort Open()
-        {
-            SerialIOManager.Open open = new SerialIOManager.Open();
-
-            _serial.OperationsPort.Post(open);
-
-            return open.ResponsePort;
-        }
-
-        public SuccessFailurePort Close()
-        {
-            SerialIOManager.Close close = new SerialIOManager.Close();
-
-            _serial.OperationsPort.Post(close);
-
-            return close.ResponsePort;
-        }
-
-        public SuccessFailurePort SetContinuous()
-        {
-            return Send(Packet.MonitoringMode(0x24));
-        }
-
-        public SuccessFailurePort StopContinuous()
-        {
-            return Send(Packet.MonitoringMode(0x25));
-        }
-
-        public SuccessFailurePort MeasureOnce()
-        {
-            return Send(Packet.RequestMeasured(0x01));
-        }
-
-        public SuccessFailurePort RequestStatus()
-        {
-            return Send(Packet.Status);
-        }
-    }
+//    internal class CommLink :  IDisposable
+//    {
+//        LRFCommLinkPort _internalPort;
+////        SerialIOManager _serial;
+//        string _parent;
+////        ConsoleOutputPort _console;
+//        string _description;
+//        string _portName;
+//        int _rate;
+//
+////        public new DispatcherQueue TaskQueue
+////        {
+////            get { return base.TaskQueue; }
+////        }
+//
+////        public CommLink(DispatcherQueue dispatcherQueue, string port, LRFCommLinkPort internalPort)
+////            : base(dispatcherQueue)
+////        {
+////            _internalPort = internalPort;
+////            _portName = port;
+////
+////            _serial = new SerialIOManager(dispatcherQueue, _portName);
+////            Activate<ITask>(
+////                Arbiter.Receive<Packet>(true, _serial.Responses, PacketHandler),
+////                Arbiter.Receive<Exception>(true, _serial.Responses, ExceptionHandler)
+////            );
+////        }
+//
+////        public string Parent
+////        {
+////            get { return _parent; }
+////            set
+////            {
+////                _parent = value;
+////                _serial.Parent = value;
+////            }
+////        }
+//
+////        public ConsoleOutputPort Console
+////        {
+////            get { return _console; }
+////            set
+////            {
+////                _console = value;
+////                _serial.Console = value;
+////            }
+////        }
+//
+//        Object Send(Packet packet)
+//        {
+////            SerialIOManager.Send send = new SerialIOManager.Send();
+////            send.Packet = packet;
+////
+////            _serial.OperationsPort.Post(send);
+////
+////            return send.ResponsePort;
+//        	return null;
+//        }
+//
+////        public Object Initialize()
+////        {
+////            if (_serial.BaudRate != 9600)
+////            {
+////                _rate = 9600;
+////            }
+////            return Send(Packet.InitializeAndReset);
+////        }
+//
+//        /// <summary>
+//        /// Sets the Baud rate used to communicate with the LRF.
+//        /// Acceptable values are 38400, 19200 and 9600
+//        /// </summary>
+//        public Object SetDataRate(int rate)
+//        {
+//            Packet packet = null;
+//            switch (rate)
+//            {
+//                case 38400:
+//                    packet = Packet.MonitoringMode(0x40);
+//                    break;
+//
+//                case 19200:
+//                    packet = Packet.MonitoringMode(0x41);
+//                    break;
+//
+//                case 9600:
+//                    packet = Packet.MonitoringMode(0x42);
+//                    break;
+//
+//                default:
+////                    SuccessFailurePort port = new SuccessFailurePort();
+////                    port.Post(new ArgumentException("Baud Rate (only 9600, 19200 and 38400 supported)"));
+////                    return port;
+//            	break;
+//            }
+//            _rate = rate;
+//            return Send(packet);
+//        }
+//
+//        /// <summary>
+//        /// Gets the Baud rate used to communicate with the LRF.
+//        /// Acceptable values are 38400, 19200 and 9600
+//        /// </summary>
+//        public int BaudRate
+//        {
+//            get { return 9600; } //_serial.BaudRate; }
+//        }
+//
+//        public string Description
+//        {
+//            get { return _description; }
+//        }
+//
+//        void PacketHandler(Packet packet)
+//        {
+//            DateTime timeStamp = DateTime.Now;
+//
+//            if (packet == null || !packet.GoodChecksum)
+//            {
+//                return;
+//            }
+//            switch (packet.Response)
+//            {
+//                case 0x91:
+//                    LogInfo("Reset");
+//                    OnReset(packet);
+//                    break;
+//                case 0x90:
+//                    LogInfo("Power On");
+//                    OnPowerOn(packet);
+//                    break;
+//                case 0xA0:
+//                    LogInfo("Confirm");
+//                    OnConfirm(packet);
+//                    break;
+//                case 0xB0:
+//                    OnMeasurement(packet, timeStamp);
+//                    break;
+//                case 0xB1:
+//                    LogInfo("Status");
+//                    OnStatus(packet);
+//                    break;
+//                default:
+//                    LogInfo("Unknown Packet: {0}", packet.Response);
+//                    break;
+//            }
+//        }
+//
+//        void LogInfo(string format, params object[] args)
+//        {
+//            string msg = string.Format(format, args);
+//        }
+//
+//        void ExceptionHandler(Exception e)
+//        {
+////            _internalPort.Post(e);
+//        }
+//
+//        private void OnStatus(Packet p)
+//        {
+////            _internalPort.Post(new LinkStatus(p.Data));
+//        }
+//
+//        private void OnReset(Packet p)
+//        {
+//            SetRate();
+//
+////            _internalPort.Post(new LinkReset());
+//        }
+//
+//        private void OnConfirm(Packet p)
+//        {
+////            _internalPort.Post(new LinkConfirm());
+//        }
+//
+//        public Object SetRate()
+//        {
+//            Object port = null;
+//
+////            if (_rate != 0)
+////            {
+////                SerialIOManager.SetRate setRate = new SerialIOManager.SetRate(_rate);
+////
+//////                _serial.OperationsPort.Post(setRate);
+////
+//////                port = setRate.ResponsePort;
+////            }
+////            else
+////            {
+//////                port = new SuccessFailurePort();
+//////                port.Post(new Exception("Rate not set"));
+////            }
+////
+//            return port;
+//        }
+//
+//
+//        private void OnMeasurement(Packet p, DateTime TimeStamp)
+//        {
+//            byte[] data = p.Data;
+//            LinkMeasurement lsd = new LinkMeasurement();
+//            lsd.TimeStamp = TimeStamp;
+//
+//            ushort lengthAndFlags = Packet.MakeUshort(data[1], data[2]);
+//            int length = lengthAndFlags & 0x3FF;
+//
+//            switch (lengthAndFlags >> 14)
+//            {
+//                case 0:
+//                    lsd.Units = Units.Centimeters;
+//                    break;
+//                case 1:
+//                    lsd.Units = Units.Millimeters;
+//                    break;
+//                default:
+//                    return;
+//            }
+//
+//            lsd.Ranges = new int[length];
+//
+//            int offset = 3;
+//            for (int i = 0; i < length; i++, offset += 2)
+//            {
+//                ushort range = Packet.MakeUshort(data[offset], data[offset + 1]);
+//                if (range > 0x1FF7)
+//                {
+//                    range = 0x2000;
+//                }
+//                lsd.Ranges[i] = range;
+//            }
+//
+//
+//            if (offset < p.Length - 1)
+//            {
+//                lsd.ScanIndex = data[offset++];
+//            }
+//            else
+//            {
+//                lsd.ScanIndex = -1;
+//            }
+//            if (offset < p.Length - 1)
+//            {
+//                lsd.TelegramIndex = data[offset++];
+//            }
+//            else
+//            {
+//                lsd.TelegramIndex = -1;
+//            }
+//
+//            _internalPort.Post(lsd);
+//        }
+//
+//
+//
+//        private void OnPowerOn(Packet p)
+//        {
+//            _description = "";
+//            byte[] data = p.Data;
+//            int length = data.Length;
+//
+//            for (int i = 1; i < length - 1; i++)
+//            {
+//                _description = _description + ((char)data[i]);
+//            }
+//
+//            _internalPort.Post(new LinkPowerOn(_description));
+//        }
+//
+//        #region IDisposable Members
+//
+//        public void Dispose()
+//        {
+//            Close();
+//        }
+//
+//        #endregion
+//
+//        public Object Open()
+//        {
+////            SerialIOManager.Open open = new SerialIOManager.Open();
+////
+////            _serial.OperationsPort.Post(open);
+//
+//            return open.ResponsePort;
+//        }
+//
+//        public Object Close()
+//        {
+//            SerialIOManager.Close close = new SerialIOManager.Close();
+//
+//            _serial.OperationsPort.Post(close);
+//
+//            return close.ResponsePort;
+//        }
+//
+//        public Object SetContinuous()
+//        {
+//            return Send(Packet.MonitoringMode(0x24));
+//        }
+//
+//        public Object StopContinuous()
+//        {
+//            return Send(Packet.MonitoringMode(0x25));
+//        }
+//
+//        public Object MeasureOnce()
+//        {
+//            return Send(Packet.RequestMeasured(0x01));
+//        }
+//
+//        public Object RequestStatus()
+//        {
+//            return Send(Packet.Status);
+//        }
+//    }
 
     internal class LinkStatus
     {
