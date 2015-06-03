@@ -1,5 +1,5 @@
 <!DOCTYPE PATCH  SYSTEM "http://vvvv.org/versions/vvvv45beta33.7.dtd" >
-   <PATCH nodename="C:\Users\jens\Documents\plugins\DevicesSick\Sick (Devices) help.v4p" scrollx="0" scrolly="-360">
+   <PATCH nodename="C:\vvvv-sick\Sick (Devices) help.v4p" scrollx="0" scrolly="-360">
    <BOUNDS type="Window" left="0" top="0" width="12675" height="15750">
    </BOUNDS>
    <NODE nodename="IOBox (String)" componentmode="InABox" id="3" systemname="IOBox (String)">
@@ -39,7 +39,7 @@
    </BOUNDS>
    <BOUNDS type="Node" left="7335" top="9720" width="0" height="0">
    </BOUNDS>
-   <PIN pinname="Input Enum" slicecount="1" visible="1" values="COM8">
+   <PIN pinname="Input Enum" slicecount="1" visible="1" values="COM3">
    </PIN>
    <PIN pinname="Descriptive Name" slicecount="1" values="|Port Name|">
    </PIN>
@@ -159,9 +159,9 @@
    </PIN>
    </NODE>
    <NODE nodename="IOBox (String)" componentmode="InABox" id="125" systemname="IOBox (String)">
-   <BOUNDS type="Box" left="3585" top="11790" width="2700" height="660">
+   <BOUNDS type="Box" left="8580" top="11130" width="2700" height="660">
    </BOUNDS>
-   <BOUNDS type="Node" left="3585" top="11790" width="0" height="0">
+   <BOUNDS type="Node" left="8580" top="11130" width="0" height="0">
    </BOUNDS>
    <PIN pinname="Default" slicecount="1" values="||">
    </PIN>
@@ -247,7 +247,7 @@
    </BOUNDS>
    <BOUNDS type="Node" left="6210" top="6390" width="0" height="0">
    </BOUNDS>
-   <PIN pinname="Input Enum" slicecount="1" visible="1" values="COM8">
+   <PIN pinname="Input Enum" slicecount="1" visible="1" values="COM3">
    </PIN>
    </NODE>
    <LINK srcnodeid="132" srcpinname="Output Enum" dstnodeid="116" dstpinname="Port Name">
@@ -899,9 +899,9 @@
    <LINK srcnodeid="127" srcpinname="Scan" dstnodeid="288" dstpinname="Input">
    </LINK>
    <NODE nodename="IOBox (Value Advanced)" componentmode="InABox" id="294" systemname="IOBox (Value Advanced)">
-   <BOUNDS type="Box" left="4410" top="11310" width="795" height="240">
+   <BOUNDS type="Box" left="3690" top="11565" width="795" height="240">
    </BOUNDS>
-   <BOUNDS type="Node" left="4410" top="11310" width="0" height="0">
+   <BOUNDS type="Node" left="3690" top="11565" width="0" height="0">
    </BOUNDS>
    <PIN pinname="Units" slicecount="1" values="||">
    </PIN>
@@ -915,9 +915,9 @@
    <LINK srcnodeid="127" srcpinname="Bad Packets" dstnodeid="294" dstpinname="Y Input Value">
    </LINK>
    <NODE nodename="IOBox (Value Advanced)" componentmode="InABox" id="295" systemname="IOBox (Value Advanced)">
-   <BOUNDS type="Box" left="5115" top="10830" width="795" height="240">
+   <BOUNDS type="Box" left="4380" top="11025" width="795" height="240">
    </BOUNDS>
-   <BOUNDS type="Node" left="5115" top="10830" width="0" height="0">
+   <BOUNDS type="Node" left="4380" top="11025" width="0" height="0">
    </BOUNDS>
    <PIN pinname="Units" slicecount="1" values="||">
    </PIN>
@@ -931,9 +931,9 @@
    <LINK srcnodeid="127" srcpinname="Noise" dstnodeid="295" dstpinname="Y Input Value">
    </LINK>
    <NODE nodename="IOBox (String)" componentmode="InABox" id="296" systemname="IOBox (String)">
-   <BOUNDS type="Box" left="6570" top="12540" width="2355" height="360">
+   <BOUNDS type="Box" left="6870" top="12615" width="2355" height="360">
    </BOUNDS>
-   <BOUNDS type="Node" left="6570" top="12540" width="0" height="0">
+   <BOUNDS type="Node" left="6870" top="12615" width="0" height="0">
    </BOUNDS>
    <PIN pinname="Default" slicecount="1" values="||">
    </PIN>
@@ -947,9 +947,9 @@
    <LINK srcnodeid="127" srcpinname="Device Info" dstnodeid="296" dstpinname="Input String">
    </LINK>
    <NODE nodename="IOBox (Value Advanced)" componentmode="InABox" id="297" systemname="IOBox (Value Advanced)">
-   <BOUNDS type="Box" left="6630" top="11505" width="480" height="480">
+   <BOUNDS type="Box" left="5160" top="11460" width="480" height="480">
    </BOUNDS>
-   <BOUNDS type="Node" left="6630" top="11505" width="0" height="0">
+   <BOUNDS type="Node" left="5160" top="11460" width="0" height="0">
    </BOUNDS>
    <PIN pinname="Units" slicecount="1" values="||">
    </PIN>
@@ -965,9 +965,9 @@
    <LINK srcnodeid="127" srcpinname="Faulty Measurement" dstnodeid="297" dstpinname="Y Input Value">
    </LINK>
    <NODE nodename="IOBox (Value Advanced)" componentmode="InABox" id="298" systemname="IOBox (Value Advanced)">
-   <BOUNDS type="Box" left="7575" top="11085" width="480" height="480">
+   <BOUNDS type="Box" left="5850" top="10920" width="480" height="480">
    </BOUNDS>
-   <BOUNDS type="Node" left="7575" top="11085" width="0" height="0">
+   <BOUNDS type="Node" left="5850" top="10920" width="0" height="0">
    </BOUNDS>
    <PIN pinname="Units" slicecount="1" values="||">
    </PIN>
@@ -1040,4 +1040,6 @@
    </LINK>
    <LINK srcnodeid="165" srcpinname="Output" dstnodeid="116" dstpinname="Do Send">
    </LINK>
+   <PACK Name="vvvv.packs_" Version="0.2.0">
+   </PACK>
    </PATCH>
