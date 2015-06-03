@@ -18,7 +18,7 @@ namespace Muthesius.SickLRF
     internal class Packet
     {
         public byte[] _data;
-
+		public DateTime TimeStamp;
         #region Constructors
 
         public Packet(List<byte> data)
@@ -268,6 +268,7 @@ namespace Muthesius.SickLRF
         string _parent;
         ILogger Logger;
 
+    	public PacketBuilder() : this(null) {}
         public PacketBuilder(ILogger logger)
         {
         	Logger = logger;
@@ -431,8 +432,8 @@ namespace Muthesius.SickLRF
 
         public void LogInfo(string format, params object[] args)
         {
+        	if(Logger == null) return;
             string msg = string.Format(format, args);
-
             Logger.Log(LogType.Debug,msg);
         }
     }
