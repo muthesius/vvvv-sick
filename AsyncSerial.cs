@@ -16,6 +16,8 @@ namespace Muthesius.SickLRF {
 		public SickDevice() : base() {
 			Packets = new PacketBuilder();
 			ReadPort = ReadPackets;
+			ReadBufferSize = 4096;
+			base.ReceivedBytesThreshold = 2;
 		}
 		
 		public delegate void Packetnotifier(Packet p);
