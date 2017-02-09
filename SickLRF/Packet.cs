@@ -6,6 +6,8 @@
 //  $File: Packet.cs $ $Revision: 7 $
 //-----------------------------------------------------------------------
 
+// This file was modfied to be used in VVVV plugins
+
 using System;
 using System.Collections.Generic;
 using System.Text;
